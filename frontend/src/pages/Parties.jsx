@@ -10,8 +10,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, BookOpen } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 const empty = { name: "", type: "consignor", phone: "", email: "", address: "", gst: "", notes: "" };
 
@@ -62,12 +63,13 @@ export default function Parties() {
             <tbody>
               {filtered.map(p => (
                 <tr key={p.id}>
-                  <td className="font-semibold">{p.name}</td>
+                  <td className="font-semibold"><Link to={`/parties/${p.id}/ledger`} data-testid={`party-name-link-${p.id}`} className="hover:accent-text">{p.name}</Link></td>
                   <td><span className={`status-badge ${p.type === "transporter" ? "status-in_transit" : "status-delivered"}`}>{p.type}</span></td>
                   <td>{p.phone || "-"}</td>
                   <td className="font-mono-num text-xs">{p.gst || "-"}</td>
                   <td className="max-w-xs truncate">{p.address || "-"}</td>
                   <td className="text-right pr-4">
+                    <Link to={`/parties/${p.id}/ledger`} data-testid={`ledger-party-${p.id}`} title="View Ledger" className="inline-block p-1.5 text-stone-600 hover:accent-text"><BookOpen size={15}/></Link>
                     <button onClick={() => { setEditing(p); setForm({ ...empty, ...p }); setOpen(true); }} data-testid={`edit-party-${p.id}`} className="p-1.5 text-stone-600 hover:accent-text"><Pencil size={15}/></button>
                     <button onClick={() => setDelId(p.id)} data-testid={`delete-party-${p.id}`} className="p-1.5 text-stone-600 hover:text-red-600"><Trash2 size={15}/></button>
                   </td>

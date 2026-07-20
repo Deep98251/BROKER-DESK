@@ -11,6 +11,7 @@ import Trips from "@/pages/Trips";
 import Commission from "@/pages/Commission";
 import Expenses from "@/pages/Expenses";
 import Firms from "@/pages/Firms";
+import PartyLedger from "@/pages/PartyLedger";
 import Invoice from "@/pages/Invoice";
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
               <Route path="/trucks" element={<Trucks />} />
               <Route path="/drivers" element={<Drivers />} />
               <Route path="/parties" element={<Parties />} />
+              <Route path="/parties/:id/ledger" element={<PartyLedger />} />
               <Route path="/trips" element={<Trips />} />
               <Route path="/commission" element={<Commission />} />
               <Route path="/expenses" element={<Expenses />} />

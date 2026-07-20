@@ -26,6 +26,11 @@ export const api = {
   createParty: (data) => client.post("/parties", data).then(r => r.data),
   updateParty: (id, data) => client.put(`/parties/${id}`, data).then(r => r.data),
   deleteParty: (id) => client.delete(`/parties/${id}`).then(r => r.data),
+  getPartyLedger: (id, firm_id) => client.get(`/parties/${id}/ledger`, { params: firm_id ? { firm_id } : {} }).then(r => r.data),
+  // party payments (standalone)
+  createPartyPayment: (data) => client.post("/party-payments", data).then(r => r.data),
+  updatePartyPayment: (id, data) => client.put(`/party-payments/${id}`, data).then(r => r.data),
+  deletePartyPayment: (id) => client.delete(`/party-payments/${id}`).then(r => r.data),
   // trips
   listTrips: (firm_id) => client.get("/trips", { params: firm_id ? { firm_id } : {} }).then(r => r.data),
   getTrip: (id) => client.get(`/trips/${id}`).then(r => r.data),

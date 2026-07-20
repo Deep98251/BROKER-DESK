@@ -1,0 +1,21 @@
+{
+  "summary": "Iteration 4 party ledger feature tested end-to-end. Backend: 26/26 tests pass (10 new ledger + 16 regression). Frontend: parties -> ledger navigation, add/delete ledger entry, quick-add prefill, running balance, print button, back-nav all work. No issues found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_ledger.py",
+    "/app/test_reports/pytest/pytest_ledger.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~790 lines — approaching split threshold; consider modularizing into routers (firms, trips, ledger) in next iteration.",
+    "Balance sign coloring in PartyLedger.jsx row: uses inline conditional; both true branches map to #C04848 and both fallbacks to #1A1A1A — logic works but could be simplified.",
+    "Party ledger endpoint does not paginate; fine for now but 5000-doc cap on trips + party_payments should be raised or paginated for scale."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Test data created via UI (UITEST_CONSIGNOR_*) — left in DB, harmless. Backend tests self-clean firm/party/trip/payment fixtures via teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Ledger endpoint /api/parties/{id}/ledger and /api/party-payments CRUD verified. Consignor scenario (debit=80000, credit=40000, balance=40000) and Transporter scenario (debit=20000, credit=50000, balance=-30000) both pass. Firm filter works. Frontend PartyLedger page fully wired with data-testids."
+}

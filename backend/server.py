@@ -216,6 +216,43 @@ class ExpenseCreate(BaseModel):
     trip_id: str = ""
 
 
+class PartyPayment(BaseModel):
+    """Standalone payment/adjustment for a party — not tied to a specific trip."""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    firm_id: str = ""
+    firm_name: str = ""
+    party_id: str
+    party_name: str = ""
+    party_type: Literal["transporter", "consignor"] = "consignor"
+    date: str
+    amount: float
+    # side is from broker's ledger for THIS party:
+    #   consignor: credit = money received | debit = extra charge on party
+    #   transporter: debit = money paid | credit = additional amount owed
+    side: Literal["debit", "credit"] = "credit"
+    kind: str = "payment"  # payment | receipt | adjustment | opening
+    mode: str = "Cash"
+    reference: str = ""
+    notes: str = ""
+    created_at: str = Field(default_factory=now_iso)
+
+
+class PartyPaymentCreate(BaseModel):
+    firm_id: str = ""
+    firm_name: str = ""
+    party_id: str
+    party_name: str = ""
+    party_type: Literal["transporter", "consignor"] = "consignor"
+    date: str
+    amount: float
+    side: Literal["debit", "credit"] = "credit"
+    kind: str = "payment"
+    mode: str = "Cash"
+    reference: str = ""
+    notes: str = ""
+
+
 # ---------------------- Helper ----------------------
 def clean(doc):
     if doc and "_id" in doc:
@@ -488,6 +525,160 @@ async def delete_expense(expense_id: str):
     if r.deleted_count == 0:
         raise HTTPException(404, "Expense not found")
     return {"ok": True}
+
+
+# ---------------------- Party Payments (standalone) ----------------------
+@api_router.get("/party-payments", response_model=List[PartyPayment])
+async def get_party_payments(party_id: Optional[str] = None, firm_id: Optional[str] = None):
+    q = {}
+    if party_id: q["party_id"] = party_id
+    if firm_id: q["firm_id"] = firm_id
+    docs = await db.party_payments.find(q, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    return docs
+
+
+@api_router.post("/party-payments", response_model=PartyPayment)
+async def create_party_payment(payload: PartyPaymentCreate):
+    obj = PartyPayment(**payload.model_dump())
+    await db.party_payments.insert_one(obj.model_dump())
+    return obj
+
+
+@api_router.put("/party-payments/{payment_id}", response_model=PartyPayment)
+async def update_party_payment(payment_id: str, payload: PartyPaymentCreate):
+    existing = await db.party_payments.find_one({"id": payment_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(404, "Payment not found")
+    updates = payload.model_dump()
+    await db.party_payments.update_one({"id": payment_id}, {"$set": updates})
+    existing.update(updates)
+    return PartyPayment(**existing)
+
+
+@api_router.delete("/party-payments/{payment_id}")
+async def delete_party_payment(payment_id: str):
+    r = await db.party_payments.delete_one({"id": payment_id})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Payment not found")
+    return {"ok": True}
+
+
+# ---------------------- Party Ledger ----------------------
+@api_router.get("/parties/{party_id}/ledger")
+async def party_ledger(party_id: str, firm_id: Optional[str] = None):
+    party = await db.parties.find_one({"id": party_id}, {"_id": 0})
+    if not party:
+        raise HTTPException(404, "Party not found")
+
+    party_type = party.get("type", "consignor")
+    q_firm = {"firm_id": firm_id} if firm_id else {}
+
+    # Trips involving this party
+    if party_type == "transporter":
+        q = {"transporter_id": party_id, **q_firm}
+    else:
+        q = {"party_id": party_id, **q_firm}
+    trips = await db.trips.find(q, {"_id": 0}).to_list(5000)
+
+    # Standalone party payments
+    pp_q = {"party_id": party_id, **q_firm}
+    party_payments = await db.party_payments.find(pp_q, {"_id": 0}).to_list(5000)
+
+    entries = []
+
+    for t in trips:
+        pf = float(t.get("party_freight") or t.get("freight_amount") or 0)
+        tf = float(t.get("transporter_freight") or 0)
+        route = f"{t.get('from_location','?')} → {t.get('to_location','?')}"
+        lr = t.get("lr_number") or t.get("id", "")[:8]
+
+        if party_type == "consignor" and pf > 0:
+            # Freight billed to party — party owes broker
+            entries.append({
+                "date": t.get("date", ""),
+                "type": "trip",
+                "description": f"Freight — {route} (LR {lr})",
+                "debit": pf,
+                "credit": 0.0,
+                "trip_id": t.get("id"),
+                "reference": lr,
+            })
+            # Trip payments received from party
+            for p in (t.get("payments") or []):
+                if p.get("direction") == "from_party":
+                    entries.append({
+                        "date": p.get("date", ""),
+                        "type": "trip_payment",
+                        "description": f"Receipt against LR {lr} · {p.get('mode','')}",
+                        "debit": 0.0,
+                        "credit": float(p.get("amount") or 0),
+                        "trip_id": t.get("id"),
+                        "reference": p.get("reference") or "",
+                    })
+
+        elif party_type == "transporter" and tf > 0:
+            # Freight owed to transporter (credit — broker owes them)
+            entries.append({
+                "date": t.get("date", ""),
+                "type": "trip",
+                "description": f"Freight owed — {route} (LR {lr})",
+                "debit": 0.0,
+                "credit": tf,
+                "trip_id": t.get("id"),
+                "reference": lr,
+            })
+            for p in (t.get("payments") or []):
+                if p.get("direction") == "to_transporter":
+                    entries.append({
+                        "date": p.get("date", ""),
+                        "type": "trip_payment",
+                        "description": f"Payment against LR {lr} · {p.get('mode','')}",
+                        "debit": float(p.get("amount") or 0),
+                        "credit": 0.0,
+                        "trip_id": t.get("id"),
+                        "reference": p.get("reference") or "",
+                    })
+
+    # Standalone party payments
+    for pp in party_payments:
+        amt = float(pp.get("amount") or 0)
+        side = pp.get("side", "credit")
+        kind = pp.get("kind", "payment")
+        desc = pp.get("notes") or {"payment": "Payment", "receipt": "Receipt", "adjustment": "Adjustment", "opening": "Opening Balance"}.get(kind, "Entry")
+        if pp.get("mode"): desc = f"{desc} · {pp['mode']}"
+        entries.append({
+            "date": pp.get("date", ""),
+            "type": kind,
+            "description": desc,
+            "debit": amt if side == "debit" else 0.0,
+            "credit": amt if side == "credit" else 0.0,
+            "party_payment_id": pp.get("id"),
+            "reference": pp.get("reference") or "",
+        })
+
+    # Sort by date ASC, then by type (trip before payment same day)
+    def sort_key(e):
+        d = e.get("date") or "0000-00-00"
+        prio = 0 if e.get("type") in ("trip", "opening") else 1
+        return (d, prio)
+
+    entries.sort(key=sort_key)
+
+    # Running balance
+    running = 0.0
+    for e in entries:
+        running += float(e.get("debit") or 0) - float(e.get("credit") or 0)
+        e["balance"] = round(running, 2)
+
+    total_debit = round(sum(float(e.get("debit") or 0) for e in entries), 2)
+    total_credit = round(sum(float(e.get("credit") or 0) for e in entries), 2)
+    balance = round(total_debit - total_credit, 2)
+
+    return {
+        "party": party,
+        "entries": entries,
+        "totals": {"debit": total_debit, "credit": total_credit, "balance": balance},
+    }
 
 
 # ---------------------- Dashboard / Stats ----------------------
