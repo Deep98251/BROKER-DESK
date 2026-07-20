@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, fmtCurrency, fmtDate } from "@/lib/api";
 import { Printer, ArrowLeft } from "lucide-react";
+import { computeTripDerived } from "@/pages/Trips";
 
 export default function Invoice() {
   const { id } = useParams();
@@ -12,8 +13,10 @@ export default function Invoice() {
   if (!t) return <div className="p-12 text-stone-600">Loading invoice…</div>;
 
   const doPrint = () => window.print();
-
-  const balance = (Number(t.freight_amount) || 0) - (Number(t.advance_paid) || 0);
+  const d = computeTripDerived(t);
+  const payments = t.payments || [];
+  const partyPays = payments.filter(p => p.direction === "from_party");
+  const transporterPays = payments.filter(p => p.direction === "to_transporter");
 
   return (
     <div className="min-h-screen bg-stone-100">
@@ -22,7 +25,7 @@ export default function Invoice() {
         <button onClick={doPrint} data-testid="print-invoice" className="accent-bg text-white px-4 py-2 rounded-md text-sm font-semibold inline-flex items-center gap-2 hover:opacity-90"><Printer size={15}/>Print / Save as PDF</button>
       </div>
 
-      <div className="print-page max-w-3xl mx-auto my-8 bg-white border border-line p-12" style={{ minHeight: "1000px" }} data-testid="invoice-content">
+      <div className="print-page max-w-3xl mx-auto my-8 bg-white border border-line p-12" data-testid="invoice-content">
         {/* Header */}
         <div className="flex items-start justify-between pb-6 border-b border-line">
           <div>
@@ -34,7 +37,7 @@ export default function Invoice() {
               </div>
             </div>
             <div className="text-xs text-stone-500 mt-4 leading-relaxed">
-              Commission / Freight Bill<br/>
+              Freight Bill & Payment Statement<br/>
               Single-user broker workspace
             </div>
           </div>
@@ -71,18 +74,95 @@ export default function Invoice() {
           </div>
         </div>
 
-        {/* Amounts */}
-        <div className="py-6">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-stone-500 font-bold mb-4">Financials</div>
+        {/* Freight Summary */}
+        <div className="py-6 border-b border-line">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-stone-500 font-bold mb-4">Freight Summary</div>
           <table className="w-full text-sm">
             <tbody>
-              <MoneyRow label="Freight Amount" value={fmtCurrency(t.freight_amount)} />
-              <MoneyRow label="Advance Paid" value={"− " + fmtCurrency(t.advance_paid)} />
-              <MoneyRow label="Balance Payable to Transporter" value={fmtCurrency(balance)} bold />
-              <tr><td colSpan={2} className="py-2"></td></tr>
-              <MoneyRow label={`Brokerage / Commission ${t.commission_percent ? `@ ${t.commission_percent}%` : ""}`} value={fmtCurrency(t.commission_amount)} accent bold />
+              <MoneyRow label="Freight agreed with Party" value={fmtCurrency(d.pf)} />
+              <MoneyRow label="Freight agreed with Transporter" value={fmtCurrency(d.tf)} />
+              <MoneyRow label="Brokerage / Commission" value={fmtCurrency(d.commissionAgreed)} accent bold />
             </tbody>
           </table>
+        </div>
+
+        {/* Payments From Party */}
+        <div className="py-6 border-b border-line">
+          <div className="flex items-baseline justify-between mb-4">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-stone-500 font-bold">Received from Party</div>
+            <div className="text-xs text-stone-500">{partyPays.length} entries</div>
+          </div>
+          {partyPays.length === 0 ? (
+            <div className="text-sm text-stone-500">No receipts yet.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-line"><th className="text-left py-2 text-[10px] uppercase tracking-wider text-stone-500">Date</th><th className="text-left py-2 text-[10px] uppercase tracking-wider text-stone-500">Mode</th><th className="text-left py-2 text-[10px] uppercase tracking-wider text-stone-500">Ref</th><th className="text-right py-2 text-[10px] uppercase tracking-wider text-stone-500">Amount</th></tr></thead>
+              <tbody>
+                {partyPays.map(p => (
+                  <tr key={p.id} className="border-b border-line last:border-0">
+                    <td className="py-2">{fmtDate(p.date)}</td>
+                    <td className="py-2">{p.mode}</td>
+                    <td className="py-2 text-xs">{p.reference || "-"}</td>
+                    <td className="py-2 text-right font-mono-num">{fmtCurrency(p.amount)}</td>
+                  </tr>
+                ))}
+                <tr className="font-semibold">
+                  <td colSpan={3} className="py-2 text-right">Total received:</td>
+                  <td className="py-2 text-right font-mono-num">{fmtCurrency(d.partyReceived)}</td>
+                </tr>
+                <tr className="font-bold" style={{ color: d.partyBalance > 0 ? "#C04848" : "#4D7A58" }}>
+                  <td colSpan={3} className="py-2 text-right">Balance from party:</td>
+                  <td className="py-2 text-right font-mono-num">{fmtCurrency(d.partyBalance)}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Payments To Transporter */}
+        <div className="py-6 border-b border-line">
+          <div className="flex items-baseline justify-between mb-4">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-stone-500 font-bold">Paid to Transporter</div>
+            <div className="text-xs text-stone-500">{transporterPays.length} entries</div>
+          </div>
+          {transporterPays.length === 0 ? (
+            <div className="text-sm text-stone-500">No payments yet.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-line"><th className="text-left py-2 text-[10px] uppercase tracking-wider text-stone-500">Date</th><th className="text-left py-2 text-[10px] uppercase tracking-wider text-stone-500">Mode</th><th className="text-left py-2 text-[10px] uppercase tracking-wider text-stone-500">Ref</th><th className="text-right py-2 text-[10px] uppercase tracking-wider text-stone-500">Amount</th></tr></thead>
+              <tbody>
+                {transporterPays.map(p => (
+                  <tr key={p.id} className="border-b border-line last:border-0">
+                    <td className="py-2">{fmtDate(p.date)}</td>
+                    <td className="py-2">{p.mode}</td>
+                    <td className="py-2 text-xs">{p.reference || "-"}</td>
+                    <td className="py-2 text-right font-mono-num">{fmtCurrency(p.amount)}</td>
+                  </tr>
+                ))}
+                <tr className="font-semibold">
+                  <td colSpan={3} className="py-2 text-right">Total paid:</td>
+                  <td className="py-2 text-right font-mono-num">{fmtCurrency(d.transporterPaid)}</td>
+                </tr>
+                <tr className="font-bold" style={{ color: d.transporterBalance > 0 ? "#C04848" : "#4D7A58" }}>
+                  <td colSpan={3} className="py-2 text-right">Balance to transporter:</td>
+                  <td className="py-2 text-right font-mono-num">{fmtCurrency(d.transporterBalance)}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Net Position */}
+        <div className="py-6">
+          <div className="p-4 accent-soft-bg rounded-md border border-orange-200/60">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.22em] accent-text font-bold">Broker Position</div>
+                <div className="text-xs text-stone-600 mt-1">Commission agreed {fmtCurrency(d.commissionAgreed)} · Realized so far {fmtCurrency(d.commissionRealized)}</div>
+              </div>
+              <div className="font-display text-3xl font-bold accent-text">{fmtCurrency(d.commissionRealized)}</div>
+            </div>
+          </div>
         </div>
 
         {t.notes && (
@@ -93,7 +173,7 @@ export default function Invoice() {
         )}
 
         <div className="pt-10 mt-10 border-t border-line flex justify-between items-end text-xs text-stone-500">
-          <div>This is a system-generated bill.</div>
+          <div>This is a system-generated statement.</div>
           <div className="text-right">
             <div className="pt-8 border-t border-stone-400 w-40 text-center text-xs">Authorised Signature</div>
           </div>

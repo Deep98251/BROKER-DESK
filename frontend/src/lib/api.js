@@ -27,6 +27,9 @@ export const api = {
   createTrip: (data) => client.post("/trips", data).then(r => r.data),
   updateTrip: (id, data) => client.put(`/trips/${id}`, data).then(r => r.data),
   deleteTrip: (id) => client.delete(`/trips/${id}`).then(r => r.data),
+  // trip payments
+  addPayment: (tripId, data) => client.post(`/trips/${tripId}/payments`, data).then(r => r.data),
+  deletePayment: (tripId, paymentId) => client.delete(`/trips/${tripId}/payments/${paymentId}`).then(r => r.data),
   // expenses
   listExpenses: () => client.get("/expenses").then(r => r.data),
   createExpense: (data) => client.post("/expenses", data).then(r => r.data),

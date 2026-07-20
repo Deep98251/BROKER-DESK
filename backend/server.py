@@ -87,6 +87,26 @@ class PartyCreate(BaseModel):
     notes: str = ""
 
 
+class Payment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    date: str
+    direction: Literal["from_party", "to_transporter"]
+    amount: float
+    mode: str = "Cash"  # Cash / Bank / UPI / Cheque
+    reference: str = ""
+    notes: str = ""
+
+
+class PaymentCreate(BaseModel):
+    date: str
+    direction: Literal["from_party", "to_transporter"]
+    amount: float
+    mode: str = "Cash"
+    reference: str = ""
+    notes: str = ""
+
+
 class Trip(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -102,13 +122,18 @@ class Trip(BaseModel):
     driver_name: str = ""
     material: str = ""
     weight: str = ""
+    # Two-sided pricing (broker model)
+    party_freight: float = 0.0        # agreed with party (money coming in)
+    transporter_freight: float = 0.0  # agreed with transporter (money going out)
+    # Legacy / display
     freight_amount: float = 0.0
     commission_percent: float = 0.0
-    commission_amount: float = 0.0
-    advance_paid: float = 0.0
-    balance: float = 0.0
+    commission_amount: float = 0.0    # party_freight - transporter_freight (or manual)
+    advance_paid: float = 0.0         # legacy
+    balance: float = 0.0              # legacy
     status: Literal["pending", "in_transit", "delivered", "paid"] = "pending"
     commission_received: bool = False
+    payments: List[Payment] = Field(default_factory=list)
     notes: str = ""
     created_at: str = Field(default_factory=now_iso)
 
@@ -126,6 +151,8 @@ class TripCreate(BaseModel):
     driver_name: str = ""
     material: str = ""
     weight: str = ""
+    party_freight: float = 0.0
+    transporter_freight: float = 0.0
     freight_amount: float = 0.0
     commission_percent: float = 0.0
     commission_amount: float = 0.0
@@ -133,6 +160,7 @@ class TripCreate(BaseModel):
     balance: float = 0.0
     status: Literal["pending", "in_transit", "delivered", "paid"] = "pending"
     commission_received: bool = False
+    payments: List[Payment] = Field(default_factory=list)
     notes: str = ""
 
 
@@ -287,12 +315,30 @@ async def get_trip(trip_id: str):
     return doc
 
 
+def _apply_trip_calcs(data: dict, existing: dict | None = None):
+    """Auto-calc: commission = party_freight - transporter_freight (if both set).
+    Preserves existing payments if not sent by client."""
+    pf = float(data.get("party_freight") or 0)
+    tf = float(data.get("transporter_freight") or 0)
+    # For UI backward compat: if freight_amount is 0 but party_freight set, mirror it
+    if pf and not data.get("freight_amount"):
+        data["freight_amount"] = pf
+    fa = float(data.get("freight_amount") or 0)
+    cp = float(data.get("commission_percent") or 0)
+    ca = float(data.get("commission_amount") or 0)
+    if pf and tf and not ca:
+        data["commission_amount"] = round(pf - tf, 2)
+    elif fa and cp and not ca:
+        data["commission_amount"] = round(fa * cp / 100.0, 2)
+    # Preserve existing payments if client didn't send any
+    if existing is not None and not data.get("payments"):
+        data["payments"] = existing.get("payments", [])
+    return data
+
+
 @api_router.post("/trips", response_model=Trip)
 async def create_trip(payload: TripCreate):
-    data = payload.model_dump()
-    # Auto-calc commission_amount if percent given and amount not
-    if data.get("freight_amount") and data.get("commission_percent") and not data.get("commission_amount"):
-        data["commission_amount"] = round(data["freight_amount"] * data["commission_percent"] / 100.0, 2)
+    data = _apply_trip_calcs(payload.model_dump())
     obj = Trip(**data)
     await db.trips.insert_one(obj.model_dump())
     return obj
@@ -303,9 +349,7 @@ async def update_trip(trip_id: str, payload: TripCreate):
     existing = await db.trips.find_one({"id": trip_id}, {"_id": 0})
     if not existing:
         raise HTTPException(404, "Trip not found")
-    updates = payload.model_dump()
-    if updates.get("freight_amount") and updates.get("commission_percent") and not updates.get("commission_amount"):
-        updates["commission_amount"] = round(updates["freight_amount"] * updates["commission_percent"] / 100.0, 2)
+    updates = _apply_trip_calcs(payload.model_dump(), existing)
     await db.trips.update_one({"id": trip_id}, {"$set": updates})
     existing.update(updates)
     return Trip(**existing)
@@ -317,6 +361,31 @@ async def delete_trip(trip_id: str):
     if r.deleted_count == 0:
         raise HTTPException(404, "Trip not found")
     return {"ok": True}
+
+
+# ---------------------- Trip Payments ----------------------
+@api_router.post("/trips/{trip_id}/payments", response_model=Trip)
+async def add_trip_payment(trip_id: str, payload: PaymentCreate):
+    trip = await db.trips.find_one({"id": trip_id}, {"_id": 0})
+    if not trip:
+        raise HTTPException(404, "Trip not found")
+    pay = Payment(**payload.model_dump())
+    payments = trip.get("payments", []) or []
+    payments.append(pay.model_dump())
+    await db.trips.update_one({"id": trip_id}, {"$set": {"payments": payments}})
+    trip["payments"] = payments
+    return Trip(**trip)
+
+
+@api_router.delete("/trips/{trip_id}/payments/{payment_id}", response_model=Trip)
+async def delete_trip_payment(trip_id: str, payment_id: str):
+    trip = await db.trips.find_one({"id": trip_id}, {"_id": 0})
+    if not trip:
+        raise HTTPException(404, "Trip not found")
+    payments = [p for p in (trip.get("payments") or []) if p.get("id") != payment_id]
+    await db.trips.update_one({"id": trip_id}, {"$set": {"payments": payments}})
+    trip["payments"] = payments
+    return Trip(**trip)
 
 
 # ---------------------- Expenses ----------------------
@@ -363,8 +432,26 @@ async def stats_summary():
     total_commission = sum(t.get("commission_amount", 0) or 0 for t in trips)
     received_commission = sum(t.get("commission_amount", 0) or 0 for t in trips if t.get("commission_received"))
     pending_commission = total_commission - received_commission
-    total_freight = sum(t.get("freight_amount", 0) or 0 for t in trips)
+    total_freight = sum((t.get("party_freight") or t.get("freight_amount", 0) or 0) for t in trips)
     total_expenses = sum(e.get("amount", 0) or 0 for e in expenses)
+
+    # Payment ledger totals
+    party_received_total = 0.0
+    transporter_paid_total = 0.0
+    party_receivable_total = 0.0
+    transporter_payable_total = 0.0
+    for t in trips:
+        pf = float(t.get("party_freight") or t.get("freight_amount") or 0)
+        tf = float(t.get("transporter_freight") or 0)
+        pays = t.get("payments") or []
+        pr = sum(float(p.get("amount") or 0) for p in pays if p.get("direction") == "from_party")
+        tp = sum(float(p.get("amount") or 0) for p in pays if p.get("direction") == "to_transporter")
+        party_received_total += pr
+        transporter_paid_total += tp
+        if pf > 0:
+            party_receivable_total += max(pf - pr, 0)
+        if tf > 0:
+            transporter_payable_total += max(tf - tp, 0)
 
     active_trips = sum(1 for t in trips if t.get("status") in ("pending", "in_transit"))
     delivered_trips = sum(1 for t in trips if t.get("status") in ("delivered", "paid"))
@@ -396,6 +483,10 @@ async def stats_summary():
         "pending_commission": round(pending_commission, 2),
         "total_freight": round(total_freight, 2),
         "total_expenses": round(total_expenses, 2),
+        "party_received_total": round(party_received_total, 2),
+        "transporter_paid_total": round(transporter_paid_total, 2),
+        "party_receivable_total": round(party_receivable_total, 2),
+        "transporter_payable_total": round(transporter_payable_total, 2),
         "trips_count": len(trips),
         "active_trips": active_trips,
         "delivered_trips": delivered_trips,

@@ -4,6 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import { Link } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { ArrowUpRight, Truck, Users, UserRound, TrendingUp, Wallet, Coins, Route as RouteIcon } from "lucide-react";
+import { computeTripDerived } from "@/pages/Trips";
 
 const StatCard = ({ label, value, sub, testid, accent }) => (
   <div className={`card-flat p-5 ${accent ? "border-l-4" : ""}`} style={accent ? { borderLeftColor: "var(--accent)" } : {}} data-testid={testid}>
@@ -40,9 +41,9 @@ export default function Dashboard() {
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <StatCard testid="stat-commission" accent label="Total Commission" value={fmtCurrency(s?.total_commission || 0)} sub={`${fmtCurrency(s?.received_commission || 0)} received`} />
-        <StatCard testid="stat-pending" label="Pending Commission" value={fmtCurrency(s?.pending_commission || 0)} sub="Yet to receive" />
+        <StatCard testid="stat-party-receivable" label="Party Receivable" value={fmtCurrency(s?.party_receivable_total || 0)} sub={`${fmtCurrency(s?.party_received_total || 0)} received`} />
+        <StatCard testid="stat-transporter-payable" label="Transporter Payable" value={fmtCurrency(s?.transporter_payable_total || 0)} sub={`${fmtCurrency(s?.transporter_paid_total || 0)} paid`} />
         <StatCard testid="stat-active-trips" label="Active Trips" value={s?.active_trips ?? 0} sub={`${s?.delivered_trips ?? 0} delivered`} />
-        <StatCard testid="stat-freight" label="Total Freight Handled" value={fmtCurrency(s?.total_freight || 0)} sub={`${s?.trips_count ?? 0} trips total`} />
       </div>
 
       {/* Chart + Directory */}
@@ -101,23 +102,29 @@ export default function Dashboard() {
           <table className="tms-table w-full">
             <thead>
               <tr>
-                <th>Date</th><th>LR</th><th>Route</th><th>Party</th><th>Transporter</th>
-                <th className="num">Freight</th><th className="num">Commission</th><th>Status</th>
+                <th>Date</th><th>LR</th><th>Route</th><th>Party</th>
+                <th className="num">Party Freight</th><th className="num">Commission</th>
+                <th className="num">Party Bal.</th><th className="num">Trans. Bal.</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {recent.map(t => (
-                <tr key={t.id}>
-                  <td>{fmtDate(t.date)}</td>
-                  <td className="font-mono-num text-xs">{t.lr_number || "-"}</td>
-                  <td>{t.from_location} → {t.to_location}</td>
-                  <td>{t.party_name || "-"}</td>
-                  <td>{t.transporter_name || "-"}</td>
-                  <td className="num">{fmtCurrency(t.freight_amount)}</td>
-                  <td className="num accent-text font-semibold">{fmtCurrency(t.commission_amount)}</td>
-                  <td><span className={`status-badge status-${t.status}`}>{t.status.replace("_"," ")}</span></td>
-                </tr>
-              ))}
+              {recent.map(t => {
+                const d = computeTripDerived(t);
+                return (
+                  <tr key={t.id}>
+                    <td>{fmtDate(t.date)}</td>
+                    <td className="font-mono-num text-xs">{t.lr_number || "-"}</td>
+                    <td>{t.from_location} → {t.to_location}</td>
+                    <td>{t.party_name || "-"}</td>
+                    <td className="num">{fmtCurrency(d.pf)}</td>
+                    <td className="num accent-text font-semibold">{fmtCurrency(d.commissionAgreed)}</td>
+                    <td className="num" style={{ color: d.partyBalance > 0 ? "#C04848" : "#4D7A58" }}>{fmtCurrency(d.partyBalance)}</td>
+                    <td className="num" style={{ color: d.transporterBalance > 0 ? "#C04848" : "#4D7A58" }}>{fmtCurrency(d.transporterBalance)}</td>
+                    <td><span className={`status-badge status-${t.status}`}>{t.status.replace("_"," ")}</span></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
