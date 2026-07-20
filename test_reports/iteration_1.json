@@ -1,0 +1,31 @@
+{
+  "summary": "First-finish smoke pass on BrokerDesk transport broker MVP. Backend: 6 core GET endpoints and CRUD POSTs verified against public URL — trucks, drivers, parties (transporter/consignor), trips (with server-side commission auto-calc), expenses, and /api/stats/summary all return 200 with correct data. Server-side auto-calc verified: freight=10000, commission_percent=5 -> commission_amount=500. Frontend: Dashboard, sidebar nav (7 links), Trucks, Drivers, Parties (both types + tab filter), Trips (with client-side auto-calc), Commission (pending -> received flow with sonner toast), Expenses, and Invoice PDF page all working end-to-end.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "GET /api/stats/summary returns aggregate structure with 6-month buckets",
+    "GET /api/trucks, /api/drivers, /api/parties?type=..., /api/trips, /api/expenses all 200",
+    "POST /api/trucks + PUT + DELETE work",
+    "POST /api/drivers, /api/parties (transporter & consignor) work",
+    "POST /api/trips with freight_amount=10000 & commission_percent=5 auto-calculates commission_amount=500 server-side",
+    "POST /api/expenses works",
+    "Stats aggregate correctly: total_commission=500, pending_commission=500, total_freight=10000, trips_count=1, total_expenses=500",
+    "Dashboard loads with dashboard-header, stat-commission, stat-pending, stat-active-trips, stat-freight, commission-chart, directory-summary, recent-trips",
+    "All 7 sidebar nav items visible and clickable (dashboard/trips/commission/parties/trucks/drivers/expenses)",
+    "Truck CRUD via UI: MH14XY9999 created and visible in table",
+    "Driver CRUD via UI: Ramesh Kumar created",
+    "Party CRUD: both transporter (ABC Transports) & consignor (XYZ Traders) created; tab-transporter filter correctly hides consignor",
+    "Trip form: commission auto-calculates to 500 client-side after entering freight=10000 & 5%; trip saved and shows ₹10,000 freight and ₹500 commission",
+    "trips-search and trips-status-filter present on Trips page",
+    "Commission page hero shows Total ₹1,000 / Received ₹500 / Pending ₹500 after mark-received; sonner toast 'Marked as received' displayed; trip moved from Pending to Received column",
+    "Expenses page: expense of 1500 saved and visible",
+    "Invoice route /invoice/:id renders bill number, date, route (Mumbai -> Delhi), financials with ₹10,000 freight, and print-invoice button"
+  ],
+  "failed": [],
+  "action_items": [
+    "Minor (non-blocking): POST /api/trips and POST /api/expenses require 'date' field; frontend supplies it via defaults, but consider making 'date' optional server-side (default to today) for API robustness.",
+    "Minor: POST /api/trucks accepts 'owner' field but schema stores as 'owner_name' — a client sending 'owner' silently loses the value. Not hit by UI (uses owner_name)."
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true
+}
