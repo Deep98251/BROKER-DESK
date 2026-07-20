@@ -1,0 +1,128 @@
+{
+  "theme_strategy": "Light Theme Default - 'Organic & Earthy / Soft Utility' archetype. The design must feel highly professional, reliable, and approachable. Avoid generic SaaS 'Blue'. STRICTLY FORBIDDEN: Purple/Violet, Teal Green, Teal Blue (#1B93A4).",
+  "typography": {
+    "heading_font": "Manrope",
+    "body_font": "IBM Plex Sans",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl font-bold tracking-tight text-stone-900",
+      "h2": "text-2xl sm:text-3xl font-semibold tracking-tight text-stone-800",
+      "h3": "text-xl sm:text-2xl font-medium text-stone-800",
+      "h4": "text-lg sm:text-xl font-medium text-stone-800",
+      "body": "text-base font-normal leading-relaxed text-stone-700",
+      "small_labels": "text-xs font-bold uppercase tracking-[0.2em] text-stone-500"
+    },
+    "rules": [
+      "DO NOT use Inter, Roboto, Lato, or Space Grotesk.",
+      "Headlines > 32px must use tracking-tight.",
+      "Overlines/table headers must be uppercase, tiny, and wide-spaced."
+    ]
+  },
+  "colors": {
+    "light": {
+      "background": "#F9F9F8",
+      "surface": "#FFFFFF",
+      "surface_muted": "#F0F0EA",
+      "border": "#E5E5E0",
+      "text_primary": "#1A1A1A",
+      "text_secondary": "#666666",
+      "primary_accent": "#D95E36",
+      "primary_accent_hover": "#C24F2A",
+      "success": "#4D7A58",
+      "warning": "#D99B26",
+      "danger": "#C04848"
+    },
+    "dark": {
+      "background": "#121212",
+      "surface": "#1A1A1A",
+      "surface_muted": "#242424",
+      "border": "#333333",
+      "text_primary": "#F5F5F5",
+      "text_secondary": "#A3A3A3",
+      "primary_accent": "#E06D47",
+      "primary_accent_hover": "#F07B55",
+      "success": "#5C8C67",
+      "warning": "#E8AA35",
+      "danger": "#D65A5A"
+    },
+    "rules": [
+      "Primary Accent (#D95E36 - Terracotta/Rust) is reserved STRICTLY for the Commission tab highlights, primary CTA buttons (e.g., 'Add Trip', 'Generate Invoice'), and revenue metrics.",
+      "Never use pure #000000. Use tinted deep charcoal (#1A1A1A).",
+      "Ensure text contrast meets APCA/WCAG standards. Do not put light gray text on white."
+    ]
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing System. Use 2x more whitespace than default.",
+    "container_padding": "p-6 md:p-8 lg:p-12",
+    "bento_grid": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "commission_tab": "grid grid-cols-1 lg:grid-cols-12 gap-8"
+    },
+    "rules": [
+      "Mobile-first responsive grids.",
+      "Grid items must be direct children of the grid container.",
+      "Never center-align dense content like tables, paragraphs, or forms. Left-align them.",
+      "Numeric values in tables (Freight, Commission) must be right-aligned."
+    ]
+  },
+  "components": {
+    "cards": "Subtle border (1px solid border-color), NO soft fuzzy shadows. Use rounded-md (6px radius) or flat rectangles. Hover effect: slight lift (-translate-y-1) and shadow-sm.",
+    "tables": "Cardless style preferred. Sharp edges, 1px border on bottom of rows, no vertical borders. Ample row padding (py-4 px-2).",
+    "buttons": "Pill-shaped or rounded-md. Primary: bg-primary_accent text-white hover:bg-primary_accent_hover. Secondary: bg-surface_muted text-text_primary hover:bg-border.",
+    "sidebar_navigation": "Fixed left sidebar. Background: surface_muted (#F0F0EA). Active link indicated by a bold text and a left-border highlight of primary_accent.",
+    "forms": "Use Shadcn components. Inputs should have clear borders (#E5E5E0) and focus rings (ring-1 ring-primary_accent).",
+    "modals_dialogs": "Solid background, sharp drop-shadow, 1px border. NO heavy glassmorphism for this operations tool.",
+    "toasts": "Use 'sonner' for success/error alerts."
+  },
+  "pages_and_views": {
+    "Dashboard": "High-density grid. Top cards: Total Commission (Highlighted), Active Trips, Pending Payments. Middle: Mini line-chart of 30-day commission. Bottom: Recent Trips table.",
+    "Vehicles_and_Drivers": "Data tables with quick 'Add' side-drawers or modals. Tags for vehicle types.",
+    "Parties": "Unified list with toggle/tabs for 'Transporters' vs 'Consignors'.",
+    "Trips": "The core operational table. Columns: ID, Date, Route (From-To), Transporter, Party, Freight, Comm %, Comm Amount, Status. Statuses should use distinct badge colors.",
+    "Commission": "THE HERO SECTION. Large typography for 'Total Earned'. Area chart for monthly revenue. List of pending commissions vs received. Use the primary_accent color generously here to make it feel rewarding.",
+    "Invoices_PDF": "Clean, printable view. Use standard web printing (window.print() with @media print CSS) or a library like jspdf to generate a clean A4 layout containing Trip details, Freight, Brokerage/Commission."
+  },
+  "visual_enhancers": {
+    "charts": "Use 'recharts'. Maintain minimalist styling (hide grid lines, use single brand color for bars/lines, clean tooltips).",
+    "micro_interactions": "Add transition-transform duration-200 to buttons and table rows.",
+    "empty_states": "Do not just show 'No data'. Use a muted icon, a short friendly message, and a clear CTA button."
+  },
+  "icons_and_assets": {
+    "library": "@phosphor-icons/react (Preferred for premium feel) or lucide-react.",
+    "icon_rules": "Use regular or duotone weights. Keep sizes consistent (e.g., size={20} for nav, size={16} for buttons). NEVER use emoji characters for icons."
+  },
+  "image_urls": {
+    "broker_avatar": {
+      "url": "https://images.pexels.com/photos/9623645/pexels-photo-9623645.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Professional businessman avatar to be used in the top-right profile/header section."
+    },
+    "empty_state_bg": {
+      "url": "https://images.unsplash.com/photo-1694113372786-2553caec0c76?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwxfHx0cnVjayUyMGxvZ2lzdGljcyUyMGRhc2hib2FyZCUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzg0NTQyMzM1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Clean truck on the road. Can be used as a faint watermark or for the initial welcome/onboarding screen."
+    }
+  },
+  "accessibility_and_testing": {
+    "contrast": "Ensure minimum 4.5:1 ratio for standard text. Test Terracotta text on white.",
+    "testing_attributes": "All interactive elements (buttons, links, form inputs, tabs) MUST include a 'data-testid' attribute (e.g., data-testid='add-trip-button').",
+    "focus_states": "Explicit focus states required for keyboard navigation (focus:ring-2 focus:ring-primary_accent focus:outline-none)."
+  },
+  "instructions_to_main_agent": [
+    "You are building a React.js application. Use .js and .jsx files exclusively. DO NOT use .tsx or TypeScript.",
+    "Implement the layout with a fixed left sidebar and a main scrollable content area.",
+    "Since it is a single-user app with no auth, route '/' should load directly into the Dashboard.",
+    "Use Shadcn UI components but heavily customize their Tailwind classes to match the 'Organic & Earthy / Soft Utility' theme.",
+    "Build a robust routing system (e.g., React Router) to navigate between Dashboard, Trucks, Drivers, Parties, Trips, Commission, and Expenses.",
+    "The 'Commission' tab must feel distinct and rewarding, using larger fonts and the Terracotta accent color.",
+    "Ensure the invoice feature has a 'Download PDF' or 'Print' button that strips away the sidebar and UI, rendering a clean printable invoice.",
+    "Avoid centering layouts. Maintain a structured, left-aligned, bento-box-like grid."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "DO NOT use universal transitions (e.g., 'transition: all'). Target specific properties.",
+    "DO NOT add '.App { text-align: center; }'.",
+    "Avoid generic, 'AI slop' aesthetics. No simplistic full-screen gradients.",
+    "Create depth through 1px crisp borders, subtle color shifts on hover, and thoughtful z-index hierarchy, NOT through muddy drop-shadows.",
+    "Use specific Phosphor or Lucide icons; never use AI assistant emojis.",
+    "Always use 'data-testid' on interactive elements.",
+    "Use the 'sonner' library for toast notifications.",
+    "Prioritize using existing UI components before building from scratch."
+  ]
+}
