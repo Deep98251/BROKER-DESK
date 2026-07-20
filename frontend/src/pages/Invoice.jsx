@@ -7,8 +7,20 @@ import { computeTripDerived } from "@/pages/Trips";
 export default function Invoice() {
   const { id } = useParams();
   const [t, setT] = useState(null);
+  const [firm, setFirm] = useState(null);
 
-  useEffect(() => { api.getTrip(id).then(setT).catch(() => setT(null)); }, [id]);
+  useEffect(() => {
+    let mounted = true;
+    api.getTrip(id).then(async (trip) => {
+      if (!mounted) return;
+      setT(trip);
+      if (trip.firm_id) {
+        const firms = await api.listFirms();
+        if (mounted) setFirm(firms.find(f => f.id === trip.firm_id) || null);
+      }
+    }).catch(() => setT(null));
+    return () => { mounted = false; };
+  }, [id]);
 
   if (!t) return <div className="p-12 text-stone-600">Loading invoice…</div>;
 
@@ -30,15 +42,18 @@ export default function Invoice() {
         <div className="flex items-start justify-between pb-6 border-b border-line">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-11 h-11 rounded accent-bg flex items-center justify-center text-white font-bold font-display text-lg">B</div>
+              <div className="w-11 h-11 rounded accent-bg flex items-center justify-center text-white font-bold font-display text-lg">{(firm?.name || t.firm_name || "B").charAt(0)}</div>
               <div>
-                <div className="font-display font-bold text-xl leading-none">BrokerDesk</div>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-stone-500 mt-1">Transport Brokerage</div>
+                <div className="font-display font-bold text-xl leading-none">{firm?.name || t.firm_name || "BrokerDesk"}</div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-stone-500 mt-1">{firm?.tagline || "Transport & Brokerage"}</div>
               </div>
             </div>
-            <div className="text-xs text-stone-500 mt-4 leading-relaxed">
-              Freight Bill & Payment Statement<br/>
-              Single-user broker workspace
+            <div className="text-xs text-stone-600 mt-4 leading-relaxed whitespace-pre-line">
+              {firm?.address || ""}
+              {firm?.phone && <div>Phone: {firm.phone}</div>}
+              {firm?.email && <div>Email: {firm.email}</div>}
+              {firm?.gst && <div>GSTIN: <span className="font-mono-num">{firm.gst}</span></div>}
+              {!firm && <>Freight Bill & Payment Statement<br/>Single-user broker workspace</>}
             </div>
           </div>
           <div className="text-right">
@@ -172,10 +187,17 @@ export default function Invoice() {
           </div>
         )}
 
+        {firm?.bank_details && (
+          <div className="pt-6 border-t border-line">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-stone-500 font-bold mb-2">Bank Details</div>
+            <div className="text-sm text-stone-700 whitespace-pre-wrap">{firm.bank_details}</div>
+          </div>
+        )}
+
         <div className="pt-10 mt-10 border-t border-line flex justify-between items-end text-xs text-stone-500">
           <div>This is a system-generated statement.</div>
           <div className="text-right">
-            <div className="pt-8 border-t border-stone-400 w-40 text-center text-xs">Authorised Signature</div>
+            <div className="pt-8 border-t border-stone-400 w-40 text-center text-xs">For {firm?.name || t.firm_name || "BrokerDesk"}<br/>Authorised Signature</div>
           </div>
         </div>
       </div>

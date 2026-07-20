@@ -26,6 +26,31 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+class Firm(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    address: str = ""
+    phone: str = ""
+    email: str = ""
+    gst: str = ""
+    pan: str = ""
+    bank_details: str = ""
+    tagline: str = ""
+    created_at: str = Field(default_factory=now_iso)
+
+
+class FirmCreate(BaseModel):
+    name: str
+    address: str = ""
+    phone: str = ""
+    email: str = ""
+    gst: str = ""
+    pan: str = ""
+    bank_details: str = ""
+    tagline: str = ""
+
+
 class Truck(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -110,6 +135,8 @@ class PaymentCreate(BaseModel):
 class Trip(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    firm_id: str = ""
+    firm_name: str = ""
     lr_number: str = ""
     date: str  # ISO date string
     from_location: str
@@ -139,6 +166,8 @@ class Trip(BaseModel):
 
 
 class TripCreate(BaseModel):
+    firm_id: str = ""
+    firm_name: str = ""
     lr_number: str = ""
     date: str
     from_location: str
@@ -167,6 +196,8 @@ class TripCreate(BaseModel):
 class Expense(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    firm_id: str = ""
+    firm_name: str = ""
     date: str
     category: str
     amount: float
@@ -176,6 +207,8 @@ class Expense(BaseModel):
 
 
 class ExpenseCreate(BaseModel):
+    firm_id: str = ""
+    firm_name: str = ""
     date: str
     category: str
     amount: float
@@ -199,6 +232,39 @@ async def list_collection(coll_name):
 @api_router.get("/")
 async def root():
     return {"message": "Transport Broker API"}
+
+
+# ---------------------- Firms ----------------------
+@api_router.get("/firms", response_model=List[Firm])
+async def get_firms():
+    docs = await db.firms.find({}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    return docs
+
+
+@api_router.post("/firms", response_model=Firm)
+async def create_firm(payload: FirmCreate):
+    obj = Firm(**payload.model_dump())
+    await db.firms.insert_one(obj.model_dump())
+    return obj
+
+
+@api_router.put("/firms/{firm_id}", response_model=Firm)
+async def update_firm(firm_id: str, payload: FirmCreate):
+    existing = await db.firms.find_one({"id": firm_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(404, "Firm not found")
+    updates = payload.model_dump()
+    await db.firms.update_one({"id": firm_id}, {"$set": updates})
+    existing.update(updates)
+    return Firm(**existing)
+
+
+@api_router.delete("/firms/{firm_id}")
+async def delete_firm(firm_id: str):
+    r = await db.firms.delete_one({"id": firm_id})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Firm not found")
+    return {"ok": True}
 
 
 # ---------------------- Trucks ----------------------
@@ -303,8 +369,10 @@ async def delete_party(party_id: str):
 
 # ---------------------- Trips ----------------------
 @api_router.get("/trips", response_model=List[Trip])
-async def get_trips():
-    return await list_collection("trips")
+async def get_trips(firm_id: Optional[str] = None):
+    q = {"firm_id": firm_id} if firm_id else {}
+    docs = await db.trips.find(q, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    return docs
 
 
 @api_router.get("/trips/{trip_id}", response_model=Trip)
@@ -390,8 +458,10 @@ async def delete_trip_payment(trip_id: str, payment_id: str):
 
 # ---------------------- Expenses ----------------------
 @api_router.get("/expenses", response_model=List[Expense])
-async def get_expenses():
-    return await list_collection("expenses")
+async def get_expenses(firm_id: Optional[str] = None):
+    q = {"firm_id": firm_id} if firm_id else {}
+    docs = await db.expenses.find(q, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    return docs
 
 
 @api_router.post("/expenses", response_model=Expense)
@@ -422,9 +492,10 @@ async def delete_expense(expense_id: str):
 
 # ---------------------- Dashboard / Stats ----------------------
 @api_router.get("/stats/summary")
-async def stats_summary():
-    trips = await db.trips.find({}, {"_id": 0}).to_list(5000)
-    expenses = await db.expenses.find({}, {"_id": 0}).to_list(5000)
+async def stats_summary(firm_id: Optional[str] = None):
+    q = {"firm_id": firm_id} if firm_id else {}
+    trips = await db.trips.find(q, {"_id": 0}).to_list(5000)
+    expenses = await db.expenses.find(q, {"_id": 0}).to_list(5000)
     trucks_count = await db.trucks.count_documents({})
     drivers_count = await db.drivers.count_documents({})
     parties_count = await db.parties.count_documents({})
@@ -509,6 +580,19 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def seed_firms():
+    """Seed the two default firms once, only if firms collection is empty."""
+    count = await db.firms.count_documents({})
+    if count == 0:
+        defaults = [
+            Firm(name="DEEP LOGISTICS", tagline="Transport & Brokerage").model_dump(),
+            Firm(name="SHEETAL TRANSPORT CO", tagline="Transport & Brokerage").model_dump(),
+        ]
+        await db.firms.insert_many(defaults)
+        logger.info("Seeded 2 default firms")
 
 
 @app.on_event("shutdown")

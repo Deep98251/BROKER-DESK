@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Truck, Users, UserRound, Route as RouteIcon, Coins, Wallet } from "lucide-react";
+import { LayoutDashboard, Truck, Users, UserRound, Route as RouteIcon, Coins, Wallet, Building2 } from "lucide-react";
+import FirmSwitcher from "@/components/FirmSwitcher";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard", end: true },
@@ -9,6 +10,7 @@ const navItems = [
   { to: "/trucks", label: "Trucks", icon: Truck, testid: "nav-trucks" },
   { to: "/drivers", label: "Drivers", icon: UserRound, testid: "nav-drivers" },
   { to: "/expenses", label: "Expenses", icon: Wallet, testid: "nav-expenses" },
+  { to: "/firms", label: "Firms", icon: Building2, testid: "nav-firms" },
 ];
 
 export default function Layout() {
@@ -24,7 +26,12 @@ export default function Layout() {
             </div>
           </div>
         </div>
-        <nav className="flex-1 py-4">
+
+        <div className="pt-4 border-b border-line">
+          <FirmSwitcher />
+        </div>
+
+        <nav className="flex-1 py-4 overflow-y-auto">
           {navItems.map(item => {
             const Icon = item.icon;
             return (
@@ -43,7 +50,7 @@ export default function Layout() {
           })}
         </nav>
         <div className="px-6 py-4 border-t border-line text-[11px] text-stone-500 leading-relaxed">
-          Single-user workspace<br/>All data stored locally
+          Single-user workspace<br/>Manage multiple firms under one roof
         </div>
       </aside>
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, fmtCurrency, fmtDate } from "@/lib/api";
+import { useFirm } from "@/context/FirmContext";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 const emptyForm = () => ({
+  firm_id: "", firm_name: "",
   lr_number: "", date: new Date().toISOString().slice(0, 10),
   from_location: "", to_location: "",
   transporter_id: "", transporter_name: "",
@@ -41,6 +43,7 @@ export function computeTripDerived(t) {
 }
 
 export default function Trips() {
+  const { firms, selectedId } = useFirm();
   const [items, setItems] = useState([]);
   const [transporters, setTransporters] = useState([]);
   const [consignors, setConsignors] = useState([]);
@@ -54,14 +57,15 @@ export default function Trips() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [payTrip, setPayTrip] = useState(null); // trip in payment dialog
 
-  const load = () => api.listTrips().then(setItems);
+  const load = () => api.listTrips(selectedId).then(setItems);
   useEffect(() => {
     load();
     api.listParties("transporter").then(setTransporters);
     api.listParties("consignor").then(setConsignors);
     api.listTrucks().then(setTrucks);
     api.listDrivers().then(setDrivers);
-  }, []);
+    // eslint-disable-next-line
+  }, [selectedId]);
 
   // Auto compute commission_amount from party_freight - transporter_freight
   useEffect(() => {
@@ -93,7 +97,16 @@ export default function Trips() {
     return res;
   }, [items, q, statusFilter]);
 
-  const openAdd = () => { setEditing(null); setForm(emptyForm()); setOpen(true); };
+  const openAdd = () => {
+    setEditing(null);
+    const f = emptyForm();
+    if (selectedId) {
+      const firm = firms.find(x => x.id === selectedId);
+      if (firm) { f.firm_id = firm.id; f.firm_name = firm.name; }
+    }
+    setForm(f);
+    setOpen(true);
+  };
   const openEdit = (t) => { setEditing(t); setForm({ ...emptyForm(), ...t, payments: t.payments || [] }); setOpen(true); };
 
   const save = async () => {
@@ -156,7 +169,9 @@ export default function Trips() {
           <table className="tms-table w-full min-w-[1300px]">
             <thead>
               <tr>
-                <th>Date</th><th>LR</th><th>Route</th><th>Truck</th><th>Party</th><th>Transporter</th>
+                <th>Date</th>
+                {!selectedId && <th>Firm</th>}
+                <th>LR</th><th>Route</th><th>Truck</th><th>Party</th><th>Transporter</th>
                 <th className="num">Party Freight</th><th className="num">Trans. Freight</th><th className="num">Commission</th>
                 <th className="num">Party Bal</th><th className="num">Trans. Bal</th>
                 <th>Status</th><th className="text-right pr-4">Actions</th>
@@ -168,6 +183,7 @@ export default function Trips() {
                 return (
                   <tr key={t.id} data-testid={`trip-row-${t.id}`}>
                     <td>{fmtDate(t.date)}</td>
+                    {!selectedId && <td className="text-xs font-semibold">{t.firm_name || "—"}</td>}
                     <td className="font-mono-num text-xs font-semibold">{t.lr_number || "-"}</td>
                     <td>{t.from_location} → {t.to_location}</td>
                     <td className="font-mono-num text-xs">{t.truck_number || "-"}</td>
@@ -197,6 +213,18 @@ export default function Trips() {
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader><SheetTitle className="font-display">{editing ? "Edit Trip" : "New Trip"}</SheetTitle><SheetDescription>Commission auto-calculates from Party Freight − Transporter Freight.</SheetDescription></SheetHeader>
           <div className="mt-6 space-y-4">
+            <F label="Firm *">
+              <Select value={form.firm_id || "none"} onValueChange={v => {
+                if (v === "none") setForm({ ...form, firm_id: "", firm_name: "" });
+                else { const fr = firms.find(x => x.id === v); setForm({ ...form, firm_id: v, firm_name: fr?.name || "" }); }
+              }}>
+                <SelectTrigger data-testid="input-trip-firm"><SelectValue placeholder="Select firm" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— No firm —</SelectItem>
+                  {firms.map(fr => <SelectItem key={fr.id} value={fr.id}>{fr.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </F>
             <div className="grid grid-cols-2 gap-3">
               <F label="Date"><Input type="date" data-testid="input-trip-date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></F>
               <F label="LR / Bilty No"><Input data-testid="input-trip-lr" value={form.lr_number} onChange={e => setForm({ ...form, lr_number: e.target.value })} /></F>

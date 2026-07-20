@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, fmtCurrency, fmtDate } from "@/lib/api";
+import { useFirm } from "@/context/FirmContext";
 import PageHeader from "@/components/PageHeader";
 import { Link } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
@@ -15,13 +16,14 @@ const StatCard = ({ label, value, sub, testid, accent }) => (
 );
 
 export default function Dashboard() {
+  const { selectedId, selectedName } = useFirm();
   const [s, setS] = useState(null);
   const [trips, setTrips] = useState([]);
 
   useEffect(() => {
-    api.summary().then(setS).catch(() => {});
-    api.listTrips().then(setTrips).catch(() => {});
-  }, []);
+    api.summary(selectedId).then(setS).catch(() => {});
+    api.listTrips(selectedId).then(setTrips).catch(() => {});
+  }, [selectedId]);
 
   const recent = trips.slice(0, 6);
 
@@ -29,7 +31,7 @@ export default function Dashboard() {
     <div className="p-8 lg:p-12">
       <PageHeader
         title="Dashboard"
-        subtitle="A live snapshot of your brokerage — commissions, active trips, and cash movement in one glance."
+        subtitle={`A live snapshot of ${selectedName === "All Firms" ? "your brokerage" : selectedName} — commissions, active trips, and cash movement in one glance.`}
         testid="dashboard-header"
         action={
           <Link to="/trips" data-testid="dashboard-cta-newtrip" className="inline-flex items-center gap-2 accent-bg text-white px-4 py-2.5 rounded-md text-sm font-semibold hover:opacity-90 transition-opacity">

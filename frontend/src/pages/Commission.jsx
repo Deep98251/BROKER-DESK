@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, fmtCurrency, fmtDate } from "@/lib/api";
+import { useFirm } from "@/context/FirmContext";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
@@ -8,14 +9,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 export default function Commission() {
+  const { selectedId, selectedName } = useFirm();
   const [s, setS] = useState(null);
   const [trips, setTrips] = useState([]);
 
   const load = () => {
-    api.summary().then(setS);
-    api.listTrips().then(setTrips);
+    api.summary(selectedId).then(setS);
+    api.listTrips(selectedId).then(setTrips);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [selectedId]); // eslint-disable-line
 
   const markReceived = async (t) => {
     try {
@@ -30,7 +32,7 @@ export default function Commission() {
 
   return (
     <div className="p-8 lg:p-12">
-      <PageHeader title="Commission" subtitle="Your revenue engine — every brokerage rupee, tracked and traceable." testid="commission-header" />
+      <PageHeader title="Commission" subtitle={`Revenue engine for ${selectedName === "All Firms" ? "your brokerage" : selectedName} — every rupee, tracked and traceable.`} testid="commission-header" />
 
       {/* Hero Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">

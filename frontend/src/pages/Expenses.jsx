@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, fmtCurrency, fmtDate } from "@/lib/api";
+import { useFirm } from "@/context/FirmContext";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -13,17 +14,27 @@ import { Plus, Pencil, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 const CATS = ["Fuel", "Toll", "Repair & Maintenance", "Driver Payment", "Office", "Loading/Unloading", "Other"];
-const empty = () => ({ date: new Date().toISOString().slice(0,10), category: "Fuel", amount: 0, description: "", trip_id: "" });
+const empty = () => ({ firm_id: "", firm_name: "", date: new Date().toISOString().slice(0,10), category: "Fuel", amount: 0, description: "", trip_id: "" });
 
 export default function Expenses() {
+  const { firms, selectedId } = useFirm();
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty());
   const [delId, setDelId] = useState(null);
 
-  const load = () => api.listExpenses().then(setItems);
-  useEffect(() => { load(); }, []);
+  const load = () => api.listExpenses(selectedId).then(setItems);
+  useEffect(() => { load(); }, [selectedId]); // eslint-disable-line
+
+  const openAdd = () => {
+    const f = empty();
+    if (selectedId) {
+      const fr = firms.find(x => x.id === selectedId);
+      if (fr) { f.firm_id = fr.id; f.firm_name = fr.name; }
+    }
+    setEditing(null); setForm(f); setOpen(true);
+  };
 
   const save = async () => {
     const payload = { ...form, amount: Number(form.amount) || 0 };
@@ -41,7 +52,7 @@ export default function Expenses() {
   return (
     <div className="p-8 lg:p-12">
       <PageHeader title="Expenses" subtitle="Track fuel, tolls, repairs and all overheads that eat into your commission." testid="expenses-header"
-        action={<Button onClick={() => { setEditing(null); setForm(empty()); setOpen(true); }} data-testid="add-expense-button" className="accent-bg text-white"><Plus size={16} className="mr-1.5"/>Add Expense</Button>} />
+        action={<Button onClick={openAdd} data-testid="add-expense-button" className="accent-bg text-white"><Plus size={16} className="mr-1.5"/>Add Expense</Button>} />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
         <div className="card-flat p-5" data-testid="total-expenses">
@@ -87,6 +98,18 @@ export default function Expenses() {
         <SheetContent className="w-full sm:max-w-md">
           <SheetHeader><SheetTitle className="font-display">{editing ? "Edit Expense" : "Add Expense"}</SheetTitle><SheetDescription>Log a business expense.</SheetDescription></SheetHeader>
           <div className="mt-6 space-y-4">
+            <F label="Firm">
+              <Select value={form.firm_id || "none"} onValueChange={v => {
+                if (v === "none") setForm({ ...form, firm_id: "", firm_name: "" });
+                else { const fr = firms.find(x => x.id === v); setForm({ ...form, firm_id: v, firm_name: fr?.name || "" }); }
+              }}>
+                <SelectTrigger data-testid="input-expense-firm"><SelectValue placeholder="Select firm" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— No firm —</SelectItem>
+                  {firms.map(fr => <SelectItem key={fr.id} value={fr.id}>{fr.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </F>
             <F label="Date"><Input type="date" data-testid="input-expense-date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></F>
             <F label="Category">
               <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
