@@ -45,3 +45,19 @@
 ## Next Actions
 - Await user feedback on 1st drop
 - On request: add CSV export, per-party ledger, or GST tax lines to invoices
+
+## Iteration 3 — Multi-firm support (Feb 2026)
+- Added `Firm` entity + full CRUD (`/api/firms`)
+- Auto-seed **DEEP LOGISTICS** and **SHEETAL TRANSPORT CO** on first backend start
+- `Trip` and `Expense` now carry `firm_id` + `firm_name`
+- `/api/trips`, `/api/expenses`, `/api/stats/summary` accept optional `?firm_id=` filter
+- Frontend: `FirmProvider` context (persists selection in localStorage), sidebar `FirmSwitcher`, `/firms` management page
+- Trip / Expense forms include a Firm dropdown, prefilled from the active switcher selection
+- Invoice PDF dynamically renders the trip's firm as the letterhead (name, address, GST, phone, email, tagline, bank details, signature block)
+- Trips table shows a "Firm" column when All Firms is selected (hidden when a specific firm is active)
+- All 3rd iteration tests passed 100% (backend 8/8, frontend all critical flows)
+
+## Backlog additions
+- P1: Per-firm PnL report (commission − expenses)
+- P2: Firm-wise invoice numbering series (e.g., DL-001, ST-001)
+- P2: Firm logo upload for letterhead
