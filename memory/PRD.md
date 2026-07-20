@@ -61,3 +61,18 @@
 - P1: Per-firm PnL report (commission − expenses)
 - P2: Firm-wise invoice numbering series (e.g., DL-001, ST-001)
 - P2: Firm logo upload for letterhead
+
+## Iteration 4 — Per-Party Ledger (Feb 2026)
+- New collection `party_payments` — standalone payments/adjustments not tied to any trip (for opening balances, direct receipts, cash adjustments)
+- New endpoint `GET /api/parties/{id}/ledger?firm_id=` — chronological ledger combining trip freight lines + trip payments + standalone party payments with running Debit/Credit/Balance
+- New route `/parties/:id/ledger` with 3 KPI cards (Total Debit, Total Credit, Net Receivable/Payable) and a full ledger table
+- "View Ledger" action on Parties page + party name is now a clickable link
+- Quick-Receipt (consignor) / Quick-Payment (transporter) shortcut for one-click entry
+- Trip-linked ledger rows are clickable → open the invoice PDF in new tab
+- Backend 26/26 tests pass, frontend 100% pass on all critical flows
+
+## Backlog additions
+- P1: Party ledger PDF export (currently uses window.print — works but not styled for A4 print sheet)
+- P2: Party ledger date-range filter (financial year picker)
+- P2: Overall receivables/payables dashboard aggregating balances across all parties
+- P2: WhatsApp share of ledger PDF
