@@ -1,0 +1,47 @@
+# BrokerDesk — Transport Broker Management (PRD)
+
+## Problem Statement (original)
+> can i create a transport software where i can manage all my data for free here??
+> I am a broker for transporter and party i deal in trucks. I NEED ALL BUT ALSO INCLUDE commission tab section as my revenue source is commission only. Single user. i need a very attractive clean and simple, it shouldnt be too complicated to work. yes i would need pdf.
+
+## User Persona
+- **Solo transport broker (India)** — connects transporters (truck owners) with parties (consignors). Revenue = commission per trip. Needs simple end-to-end record-keeping and printable bills.
+
+## Architecture
+- **Backend**: FastAPI + MongoDB (motor). All routes prefixed `/api`. UUID string IDs. Datetime stored as ISO strings.
+- **Frontend**: React 19 + React Router 7 + Tailwind + shadcn UI + recharts + sonner + lucide-react. Uses `REACT_APP_BACKEND_URL`.
+- **Design**: "Organic & Earthy" — Bone White `#F9F9F8` background, Terracotta `#D95E36` accent, Manrope headings, IBM Plex Sans body. Fixed left sidebar + main content.
+- **No auth** — single-user local workspace.
+- **PDF**: Native browser print via `window.print()` on `/invoice/:id` route (opens in new tab).
+
+## Core Requirements (static)
+1. Modules: Trucks, Drivers, Parties (transporter + consignor tabs), Trips/Loads, Commission (hero), Expenses, Dashboard.
+2. Trip must auto-calculate commission from freight × commission%.
+3. Commission tab must be visually distinctive (revenue centerpiece).
+4. Every trip must be exportable as a printable PDF bill.
+
+## Implemented (Feb 2026 — v1)
+- Full CRUD for trucks, drivers, parties (with type filter), trips, expenses
+- `/api/stats/summary` with 6-month rolling commission buckets
+- Dashboard with 4 stat cards, commission trend area chart, directory, recent trips table
+- Commission page: hero card (Total/Received/Pending), monthly bar chart, pending → received flow with one-click mark
+- Trips: search + status filter, auto-computed commission (client + server), advance/balance tracking
+- Invoice PDF: full A4-style printable bill with route, financials, brokerage highlighted
+- Empty states, sonner toasts, data-testid coverage across all interactive elements
+
+## Testing (iteration_1.json)
+- Backend: 100% pass — all CRUD + stats endpoints verified
+- Frontend: 100% pass — end-to-end flow (add trip → commission appears → mark received → invoice PDF) verified
+
+## Backlog (P1/P2)
+- P1: Global search across trips/parties, CSV export
+- P1: Payment history log per trip (partial settlements)
+- P2: Multi-user + auth (Emergent Google) if user grows team
+- P2: WhatsApp share of invoice PDF link
+- P2: GST/tax breakup in invoice for registered brokers
+- P2: Ledger view per party (aggregated commission owed)
+- P2: Trip-linked expenses roll-up under each trip
+
+## Next Actions
+- Await user feedback on 1st drop
+- On request: add CSV export, per-party ledger, or GST tax lines to invoices
