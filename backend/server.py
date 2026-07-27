@@ -146,9 +146,17 @@ class Trip(BaseModel):
     party_id: str = ""
     party_name: str = ""
     truck_number: str = ""
+    container_number: str = ""
+
     driver_name: str = ""
+    driver_mobile: str = ""
+
     material: str = ""
-    weight: str = ""
+
+    vehicle_type: str = ""
+
+    gross_weight: str = ""
+    net_weight: str = ""
     # Two-sided pricing (broker model)
     party_freight: float = 0.0        # agreed with party (money coming in)
     transporter_freight: float = 0.0  # agreed with transporter (money going out)
@@ -162,6 +170,8 @@ class Trip(BaseModel):
     commission_received: bool = False
     payments: List[Payment] = Field(default_factory=list)
     notes: str = ""
+    invoice_id: str = ""
+    nvoice_status: str = "Pending"
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -177,9 +187,17 @@ class TripCreate(BaseModel):
     party_id: str = ""
     party_name: str = ""
     truck_number: str = ""
+    container_number: str = ""
+
     driver_name: str = ""
+    driver_mobile: str = ""
+
     material: str = ""
-    weight: str = ""
+
+    vehicle_type: str = ""
+
+    gross_weight: str = ""
+    net_weight: str = ""
     party_freight: float = 0.0
     transporter_freight: float = 0.0
     freight_amount: float = 0.0
@@ -191,8 +209,32 @@ class TripCreate(BaseModel):
     commission_received: bool = False
     payments: List[Payment] = Field(default_factory=list)
     notes: str = ""
+    invoice_id: str = ""
+    invoice_status: str = "Pending"
 
+class Invoice(BaseModel):
+    model_config = ConfigDict(extra="ignore")
 
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+
+    invoice_number: str
+
+    invoice_date: str
+
+    party_id: str
+    party_name: str
+
+    trip_ids: List[str] = Field(default_factory=list)
+
+    subtotal: float = 0.0
+    gst: float = 0.0
+    grand_total: float = 0.0
+
+    status: Literal["Unpaid", "Paid"] = "Unpaid"
+
+    notes: str = ""
+
+    created_at: str = Field(default_factory=now_iso)
 class Expense(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -447,7 +489,21 @@ async def create_trip(payload: TripCreate):
     obj = Trip(**data)
     await db.trips.insert_one(obj.model_dump())
     return obj
+@api_router.post("/invoices", response_model=Invoice)
+async def create_invoice(invoice: Invoice):
+    await db.invoices.insert_one(invoice.model_dump())
 
+    await db.trips.update_many(
+        {"id": {"$in": invoice.trip_ids}},
+        {
+            "$set": {
+                "invoice_id": invoice.invoice_number,
+                "invoice_status": "Invoiced"
+            }
+        }
+    )
+
+    return invoice
 
 @api_router.put("/trips/{trip_id}", response_model=Trip)
 async def update_trip(trip_id: str, payload: TripCreate):
@@ -525,7 +581,37 @@ async def delete_expense(expense_id: str):
     if r.deleted_count == 0:
         raise HTTPException(404, "Expense not found")
     return {"ok": True}
+@api_router.get("/invoices", response_model=List[Invoice])
+async def get_invoices():
+    docs = await db.invoices.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return docs
 
+
+@api_router.post("/invoices", response_model=Invoice)
+async def create_invoice(payload: Invoice):
+    await db.invoices.insert_one(payload.model_dump())
+
+    await db.trips.update_many(
+        {"id": {"$in": payload.trip_ids}},
+        {
+            "$set": {
+                "invoice_id": payload.id,
+                "invoice_status": "Invoiced"
+            }
+        }
+    )
+
+    return payload
+
+
+@api_router.get("/invoices/{invoice_id}", response_model=Invoice)
+async def get_invoice(invoice_id: str):
+    invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+
+    if not invoice:
+        raise HTTPException(404, "Invoice not found")
+
+    return invoice
 
 # ---------------------- Party Payments (standalone) ----------------------
 @api_router.get("/party-payments", response_model=List[PartyPayment])

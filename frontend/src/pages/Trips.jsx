@@ -16,19 +16,49 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 const emptyForm = () => ({
-  firm_id: "", firm_name: "",
-  lr_number: "", date: new Date().toISOString().slice(0, 10),
-  from_location: "", to_location: "",
-  transporter_id: "", transporter_name: "",
-  party_id: "", party_name: "",
-  truck_number: "", driver_name: "",
-  material: "", weight: "",
-  party_freight: 0, transporter_freight: 0,
-  freight_amount: 0, commission_percent: 0, commission_amount: 0,
-  advance_paid: 0, balance: 0,
-  status: "pending", commission_received: false, notes: "", payments: [],
-});
+  firm_id: "",
+  firm_name: "",
 
+  lr_number: "",
+  date: new Date().toISOString().slice(0, 10),
+
+  from_location: "",
+  to_location: "",
+
+  transporter_id: "",
+  transporter_name: "",
+
+  party_id: "",
+  party_name: "",
+
+  truck_number: "",
+  container_number: "",
+
+  driver_name: "",
+  driver_mobile: "",
+
+  material: "",
+  vehicle_type: "",
+
+  gross_weight: "",
+  net_weight: "",
+
+  party_freight: 0,
+  transporter_freight: 0,
+
+  freight_amount: 0,
+  commission_percent: 0,
+  commission_amount: 0,
+
+  advance_paid: 0,
+  balance: 0,
+
+  status: "pending",
+  commission_received: false,
+
+  notes: "",
+  payments: [],
+});
 export function computeTripDerived(t) {
   const pf = Number(t.party_freight || t.freight_amount || 0);
   const tf = Number(t.transporter_freight || 0);
@@ -56,7 +86,7 @@ export default function Trips() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [payTrip, setPayTrip] = useState(null); // trip in payment dialog
-
+  const [selectedTrips, setSelectedTrips] = useState([]);
   const load = () => api.listTrips(selectedId).then(setItems);
   useEffect(() => {
     load();
@@ -138,7 +168,56 @@ export default function Trips() {
     setPayTrip(t);
     load();
   };
+ const generateInvoice = async () => {
+  try {
+    const trips = filtered.filter(t => selectedTrips.includes(t.id));
 
+    if (trips.length === 0) {
+      toast.error("No trips selected");
+      return;
+    }
+
+    const party = trips[0];
+
+    if (!trips.every(t => t.party_id === party.party_id)) {
+      toast.error("Please select trips from the same party.");
+      return;
+    }
+
+    const subtotal = trips.reduce(
+      (sum, t) => sum + Number(t.party_freight || 0),
+      0
+    );
+
+    const invoice = {
+      invoice_number: "INV" + Date.now(),
+      invoice_date: new Date().toISOString().slice(0, 10),
+
+      party_id: party.party_id,
+      party_name: party.party_name,
+
+      trip_ids: trips.map(t => t.id),
+
+      subtotal,
+      gst: 0,
+      grand_total: subtotal,
+
+      status: "Unpaid",
+      notes: ""
+    };
+
+    await api.createInvoice(invoice);
+
+    toast.success("Invoice created successfully!");
+
+    setSelectedTrips([]);
+
+    load();
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to create invoice");
+  }
+};
   return (
     <div className="p-8 lg:p-12">
       <PageHeader title="Trips / Loads" subtitle="Every consignment moved through your brokerage — with automatic commission and payment tracking." testid="trips-header"
@@ -166,9 +245,21 @@ export default function Trips() {
           action={<Button onClick={openAdd} className="accent-bg text-white"><Plus size={16} className="mr-1.5"/>New Trip</Button>} />
       ) : (
         <div className="card-flat p-2 overflow-x-auto">
+          {selectedTrips.length > 0 && (
+  <div className="mb-4 flex items-center justify-between rounded-lg border p-3 bg-green-50">
+    <div>
+      <strong>{selectedTrips.length}</strong> trip(s) selected
+    </div>
+
+    <Button onClick={generateInvoice}>
+  Generate Invoice
+</Button>
+  </div>
+)}
           <table className="tms-table w-full min-w-[1300px]">
             <thead>
               <tr>
+                <th></th>
                 <th>Date</th>
                 {!selectedId && <th>Firm</th>}
                 <th>LR</th><th>Route</th><th>Truck</th><th>Party</th><th>Transporter</th>
@@ -182,6 +273,19 @@ export default function Trips() {
                 const d = computeTripDerived(t);
                 return (
                   <tr key={t.id} data-testid={`trip-row-${t.id}`}>
+<td>
+  <input
+    type="checkbox"
+    checked={selectedTrips.includes(t.id)}
+    onChange={(e) => {
+      if (e.target.checked) {
+        setSelectedTrips([...selectedTrips, t.id]);
+      } else {
+        setSelectedTrips(selectedTrips.filter(id => id !== t.id));
+      }
+    }}
+  />
+</td>
                     <td>{fmtDate(t.date)}</td>
                     {!selectedId && <td className="text-xs font-semibold">{t.firm_name || "—"}</td>}
                     <td className="font-mono-num text-xs font-semibold">{t.lr_number || "-"}</td>
@@ -229,10 +333,37 @@ export default function Trips() {
               <F label="Date"><Input type="date" data-testid="input-trip-date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></F>
               <F label="LR / Bilty No"><Input data-testid="input-trip-lr" value={form.lr_number} onChange={e => setForm({ ...form, lr_number: e.target.value })} /></F>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <F label="From *"><Input data-testid="input-trip-from" value={form.from_location} onChange={e => setForm({ ...form, from_location: e.target.value })} placeholder="Mumbai" /></F>
-              <F label="To *"><Input data-testid="input-trip-to" value={form.to_location} onChange={e => setForm({ ...form, to_location: e.target.value })} placeholder="Delhi" /></F>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+
+  <F label="Loading From *">
+    <Input
+      data-testid="input-trip-from"
+      value={form.from_location}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          from_location: e.target.value,
+        })
+      }
+      placeholder="Mundra Port"
+    />
+  </F>
+
+  <F label="Unloading To *">
+    <Input
+      data-testid="input-trip-to"
+      value={form.to_location}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          to_location: e.target.value,
+        })
+      }
+      placeholder="Ahmedabad"
+    />
+  </F>
+
+</div>
 
             <F label="Transporter">
               <Select value={form.transporter_id || "none"} onValueChange={v => {
@@ -260,30 +391,117 @@ export default function Trips() {
             </F>
 
             <div className="grid grid-cols-2 gap-3">
-              <F label="Truck">
-                <Select value={form.truck_number || "none"} onValueChange={v => setForm({ ...form, truck_number: v === "none" ? "" : v })}>
-                  <SelectTrigger data-testid="input-trip-truck"><SelectValue placeholder="Select truck" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— None —</SelectItem>
-                    {trucks.map(t => <SelectItem key={t.id} value={t.number}>{t.number}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </F>
-              <F label="Driver">
-                <Select value={form.driver_name || "none"} onValueChange={v => setForm({ ...form, driver_name: v === "none" ? "" : v })}>
-                  <SelectTrigger data-testid="input-trip-driver"><SelectValue placeholder="Select driver" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— None —</SelectItem>
-                    {drivers.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </F>
+ <F label="Truck Number *">
+  <Input
+    data-testid="input-trip-truck"
+    value={form.truck_number}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        truck_number: e.target.value.toUpperCase(),
+      })
+    }
+    placeholder="GJ12AB1234"
+  />
+</F>
+
+<F label="Container Number">
+  <Input
+    value={form.container_number}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        container_number: e.target.value.toUpperCase(),
+      })
+    }
+    placeholder="MSCU1234567"
+  />
+</F>
+              <F label="Driver Name">
+  <Input
+    data-testid="input-trip-driver"
+    value={form.driver_name}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        driver_name: e.target.value,
+      })
+    }
+    placeholder="Enter Driver Name"
+  />
+</F>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <F label="Material"><Input data-testid="input-trip-material" value={form.material} onChange={e => setForm({ ...form, material: e.target.value })} /></F>
-              <F label="Weight"><Input data-testid="input-trip-weight" value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })} placeholder="e.g. 15 Ton" /></F>
-            </div>
+           <div className="grid grid-cols-2 gap-3">
+
+  <F label="Material">
+    <Input
+      data-testid="input-trip-material"
+      value={form.material}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          material: e.target.value,
+        })
+      }
+      placeholder="Fertilizer / Steel / Cement"
+    />
+  </F>
+
+  <F label="Vehicle Type">
+    <Select
+      value={form.vehicle_type || "none"}
+      onValueChange={(v) =>
+        setForm({
+          ...form,
+          vehicle_type: v === "none" ? "" : v,
+        })
+      }
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select Vehicle Type" />
+      </SelectTrigger>
+
+      <SelectContent>
+        <SelectItem value="none">Select Vehicle Type</SelectItem>
+        <SelectItem value="Container">Container</SelectItem>
+        <SelectItem value="Trailer">Trailer</SelectItem>
+        <SelectItem value="Open Truck">Open Truck</SelectItem>
+        <SelectItem value="Tanker">Tanker</SelectItem>
+        <SelectItem value="Bulker">Bulker</SelectItem>
+        <SelectItem value="Flat Bed">Flat Bed</SelectItem>
+        <SelectItem value="ODC">ODC</SelectItem>
+      </SelectContent>
+    </Select>
+  </F>
+
+  <F label="Gross Weight">
+    <Input
+      value={form.gross_weight}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          gross_weight: e.target.value,
+        })
+      }
+      placeholder="25000 Kg"
+    />
+  </F>
+
+  <F label="Net Weight">
+    <Input
+      value={form.net_weight}
+      onChange={(e) =>
+        setForm({
+          ...form,
+          net_weight: e.target.value,
+        })
+      }
+      placeholder="24500 Kg"
+    />
+  </F>
+
+</div>
 
             <div className="p-4 accent-soft-bg rounded-md border border-orange-200/60">
               <div className="text-[10px] uppercase tracking-[0.2em] accent-text font-bold mb-3">Freight Agreement (this shipment)</div>
