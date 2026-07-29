@@ -227,6 +227,8 @@ class Invoice(BaseModel):
     trip_ids: List[str] = Field(default_factory=list)
 
     subtotal: float = 0.0
+    other_charges: float = 0
+    advance_paid: float = 0
     gst: float = 0.0
     grand_total: float = 0.0
 
@@ -504,7 +506,41 @@ async def create_invoice(invoice: Invoice):
     )
 
     return invoice
+@api_router.get("/invoices", response_model=List[Invoice])
+async def list_invoices():
+    invoices = await db.invoices.find({}, {"_id": 0}).to_list(1000)
+    return [Invoice(**inv) for inv in invoices]
 
+@api_router.get("/invoices/{invoice_id}", response_model=Invoice)
+async def get_invoice(invoice_id: str):
+    invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    return Invoice(**invoice)
+@api_router.delete("/invoices/{invoice_id}")
+async def delete_invoice(invoice_id: str):
+
+    result = await db.invoices.delete_one({"id": invoice_id})
+
+    if result.deleted_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Invoice not found"
+        )
+
+    await db.trips.update_many(
+        {"invoice_id": invoice_id},
+        {
+            "$set": {
+                "invoice_id": "",
+                "invoice_status": "Pending"
+            }
+        }
+    )
+
+    return {"ok": True}
 @api_router.put("/trips/{trip_id}", response_model=Trip)
 async def update_trip(trip_id: str, payload: TripCreate):
     existing = await db.trips.find_one({"id": trip_id}, {"_id": 0})
@@ -581,37 +617,7 @@ async def delete_expense(expense_id: str):
     if r.deleted_count == 0:
         raise HTTPException(404, "Expense not found")
     return {"ok": True}
-@api_router.get("/invoices", response_model=List[Invoice])
-async def get_invoices():
-    docs = await db.invoices.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return docs
 
-
-@api_router.post("/invoices", response_model=Invoice)
-async def create_invoice(payload: Invoice):
-    await db.invoices.insert_one(payload.model_dump())
-
-    await db.trips.update_many(
-        {"id": {"$in": payload.trip_ids}},
-        {
-            "$set": {
-                "invoice_id": payload.id,
-                "invoice_status": "Invoiced"
-            }
-        }
-    )
-
-    return payload
-
-
-@api_router.get("/invoices/{invoice_id}", response_model=Invoice)
-async def get_invoice(invoice_id: str):
-    invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
-
-    if not invoice:
-        raise HTTPException(404, "Invoice not found")
-
-    return invoice
 
 # ---------------------- Party Payments (standalone) ----------------------
 @api_router.get("/party-payments", response_model=List[PartyPayment])
@@ -845,15 +851,18 @@ async def stats_summary(firm_id: Optional[str] = None):
     }
 
 
-app.include_router(api_router)
-
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+   allow_origins=[
+    "https://didactic-fortnight-6v675jpv47rf4gg5-3000.app.github.dev",
+],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(api_router)
+
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

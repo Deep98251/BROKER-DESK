@@ -1,2 +1,59 @@
 /* App-level minimal styles */
 .App { min-height: 100vh; }
+/* ================= PRINT STYLES ================= */
+
+@media print {
+
+    table,
+th,
+td {
+  border: 1px solid black !important;
+  border-collapse: collapse !important;
+}
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  button {
+    display: none !important;
+  }
+
+  nav,
+  header,
+  footer,
+  aside {
+    display: none !important;
+  }
+
+  .min-h-screen {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .shadow-2xl,
+  .shadow-lg {
+    box-shadow: none !important;
+  }
+
+  .rounded-3xl,
+  .rounded-2xl {
+    border-radius: 0 !important;
+  }
+
+  table {
+    page-break-inside: avoid;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+}

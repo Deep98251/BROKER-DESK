@@ -189,22 +189,27 @@ export default function Trips() {
       0
     );
 
-    const invoice = {
-      invoice_number: "INV" + Date.now(),
-      invoice_date: new Date().toISOString().slice(0, 10),
+    const other_charges = 0;
+const advance_paid = 0;
 
-      party_id: party.party_id,
-      party_name: party.party_name,
+const invoice = {
+  invoice_number: "INV" + Date.now(),
+  invoice_date: new Date().toISOString().slice(0, 10),
 
-      trip_ids: trips.map(t => t.id),
+  party_id: party.party_id,
+  party_name: party.party_name,
 
-      subtotal,
-      gst: 0,
-      grand_total: subtotal,
+  trip_ids: trips.map(t => t.id),
 
-      status: "Unpaid",
-      notes: ""
-    };
+  subtotal,
+  other_charges,
+  advance_paid,
+  gst: 0,
+  grand_total: subtotal + other_charges - advance_paid,
+
+  status: "Unpaid",
+  notes: ""
+};
 
     await api.createInvoice(invoice);
 

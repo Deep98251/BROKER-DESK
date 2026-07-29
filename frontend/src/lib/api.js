@@ -37,7 +37,19 @@ export const api = {
   createTrip: (data) => client.post("/trips", data).then(r => r.data),
   updateTrip: (id, data) => client.put(`/trips/${id}`, data).then(r => r.data),
   deleteTrip: (id) => client.delete(`/trips/${id}`).then(r => r.data),
-  createInvoice: (data) => client.post("/invoices", data).then(r => r.data),
+ // invoices
+ // invoices
+listInvoices: () => client.get("/invoices").then(r => r.data),
+
+getInvoice: (id) =>
+  client.get(`/invoices/${id}`).then(r => r.data),
+
+createInvoice: (data) =>
+  client.post("/invoices", data).then(r => r.data),
+
+deleteInvoice: (id) =>
+  client.delete(`/invoices/${id}`).then(r => r.data),
+
   // trip payments
   addPayment: (tripId, data) => client.post(`/trips/${tripId}/payments`, data).then(r => r.data),
   deletePayment: (tripId, paymentId) => client.delete(`/trips/${tripId}/payments/${paymentId}`).then(r => r.data),

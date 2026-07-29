@@ -1,5 +1,15 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Truck, Users, UserRound, Route as RouteIcon, Coins, Wallet, Building2 } from "lucide-react";
+import {
+  LayoutDashboard,
+  Truck,
+  Users,
+  UserRound,
+  Route as RouteIcon,
+  Coins,
+  Wallet,
+  FileText,
+  Building2,
+} from "lucide-react";
 import FirmSwitcher from "@/components/FirmSwitcher";
 
 const navItems = [
@@ -10,6 +20,7 @@ const navItems = [
   { to: "/trucks", label: "Trucks", icon: Truck, testid: "nav-trucks" },
   { to: "/drivers", label: "Drivers", icon: UserRound, testid: "nav-drivers" },
   { to: "/expenses", label: "Expenses", icon: Wallet, testid: "nav-expenses" },
+  { to: "/invoices", label: "Invoices", icon: FileText, testid: "nav-invoices" },
   { to: "/firms", label: "Firms", icon: Building2, testid: "nav-firms" },
 ];
 
