@@ -491,18 +491,24 @@ async def create_trip(payload: TripCreate):
     obj = Trip(**data)
     await db.trips.insert_one(obj.model_dump())
     return obj
-@api_router.post("/invoices", response_model=Invoice)
-async def create_invoice(invoice: Invoice):
-    await db.invoices.insert_one(invoice.model_dump())
 
-    await db.trips.update_many(
-        {"id": {"$in": invoice.trip_ids}},
-        {
-            "$set": {
-                "invoice_id": invoice.invoice_number,
-                "invoice_status": "Invoiced"
-            }
-        }
+@api_router.put("/invoices/{invoice_id}", response_model=Invoice)
+async def update_invoice(invoice_id: str, invoice: Invoice):
+
+    existing = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Invoice not found"
+        )
+
+    invoice.id = invoice_id
+    invoice.created_at = existing["created_at"]
+
+    await db.invoices.update_one(
+        {"id": invoice_id},
+        {"$set": invoice.model_dump()}
     )
 
     return invoice
