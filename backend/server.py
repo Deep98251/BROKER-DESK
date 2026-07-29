@@ -227,16 +227,43 @@ class Invoice(BaseModel):
     trip_ids: List[str] = Field(default_factory=list)
 
     subtotal: float = 0.0
-    other_charges: float = 0
-    advance_paid: float = 0
+    other_charges: float = 0.0
+    advance_paid: float = 0.0
+
     gst: float = 0.0
+    gst_amount: float = 0.0
+
     grand_total: float = 0.0
+    balance_due: float = 0.0
 
     status: Literal["Unpaid", "Paid"] = "Unpaid"
 
     notes: str = ""
 
     created_at: str = Field(default_factory=now_iso)
+
+def calculate_invoice(invoice: dict):
+    subtotal = float(invoice.get("subtotal", 0))
+    other = float(invoice.get("other_charges", 0))
+    advance = float(invoice.get("advance_paid", 0))
+    gst_percent = float(invoice.get("gst", 0))
+
+    taxable = subtotal + other
+    gst_amount = taxable * gst_percent / 100
+    grand_total = taxable + gst_amount
+    balance_due = grand_total - advance
+
+    invoice["subtotal"] = round(subtotal, 2)
+    invoice["other_charges"] = round(other, 2)
+    invoice["advance_paid"] = round(advance, 2)
+    invoice["gst"] = round(gst_percent, 2)
+    invoice["gst_amount"] = round(gst_amount, 2)
+    invoice["grand_total"] = round(grand_total, 2)
+    invoice["balance_due"] = round(balance_due, 2)
+
+    return invoice
+
+
 class Expense(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -506,12 +533,37 @@ async def update_invoice(invoice_id: str, invoice: Invoice):
     invoice.id = invoice_id
     invoice.created_at = existing["created_at"]
 
+    # Recalculate invoice totals
+    invoice_data = calculate_invoice(invoice.model_dump())
+
     await db.invoices.update_one(
         {"id": invoice_id},
-        {"$set": invoice.model_dump()}
+        {"$set": invoice_data}
     )
 
-    return invoice
+    return Invoice(**invoice_data)
+
+
+@api_router.post("/invoices", response_model=Invoice)
+async def create_invoice(invoice: Invoice):
+
+    invoice_data = calculate_invoice(invoice.model_dump())
+
+    await db.invoices.insert_one(invoice_data)
+
+    await db.trips.update_many(
+        {"id": {"$in": invoice.trip_ids}},
+        {
+            "$set": {
+                "invoice_id": invoice.invoice_number,
+                "invoice_status": "Invoiced"
+            }
+        }
+    )
+
+    return Invoice(**invoice_data)
+
+
 @api_router.get("/invoices", response_model=List[Invoice])
 async def list_invoices():
     invoices = await db.invoices.find({}, {"_id": 0}).to_list(1000)
