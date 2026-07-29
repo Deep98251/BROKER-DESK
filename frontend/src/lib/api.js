@@ -39,6 +39,7 @@ export const api = {
   deleteTrip: (id) => client.delete(`/trips/${id}`).then(r => r.data),
  // invoices
  // invoices
+// invoices
 listInvoices: () => client.get("/invoices").then(r => r.data),
 
 getInvoice: (id) =>
@@ -46,6 +47,9 @@ getInvoice: (id) =>
 
 createInvoice: (data) =>
   client.post("/invoices", data).then(r => r.data),
+
+updateInvoice: (id, data) =>
+  client.put(`/invoices/${id}`, data).then(r => r.data),
 
 deleteInvoice: (id) =>
   client.delete(`/invoices/${id}`).then(r => r.data),

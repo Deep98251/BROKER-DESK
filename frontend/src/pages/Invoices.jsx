@@ -152,11 +152,18 @@
       <td className="px-4 py-3 text-center space-x-3">
 
   <Link
-    to={`/invoice/${inv.id}`}
-    className="text-blue-600 hover:underline"
-  >
-    View
-  </Link>
+  to={`/invoice/${inv.id}`}
+  className="text-blue-600 hover:underline"
+>
+  View
+</Link>
+
+<Link
+  to={`/invoice/edit/${inv.id}`}
+  className="text-orange-600 hover:underline"
+>
+  Edit
+</Link>
 
   <button
     onClick={() => window.print()}

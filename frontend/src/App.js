@@ -13,6 +13,7 @@ import Expenses from "@/pages/Expenses";
 import Firms from "@/pages/Firms";
 import PartyLedger from "@/pages/PartyLedger";
 import Invoice from "@/pages/Invoice";
+import EditInvoice from "./pages/EditInvoice";
 import Invoices from "@/pages/Invoices";
 
 function App() {
@@ -33,7 +34,8 @@ function App() {
               <Route path="/commission" element={<Commission />} />
               <Route path="/expenses" element={<Expenses />} />
               <Route path="/invoices" element={<Invoices />} />
-              <Route path="/invoices" element={<Invoice />} />
+              
+              <Route path="/invoice/edit/:id" element={<EditInvoice />} />
               <Route path="/firms" element={<Firms />} />
             </Route>
           </Routes>
